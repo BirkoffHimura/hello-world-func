@@ -1,0 +1,39 @@
+trigger:
+  batch: false
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+- name: system_accesstoken
+  value: '$(System.AccessToken)'
+
+stages:
+- stage: Deploy
+  displayName: 'Deploy demo func'
+  jobs:
+  - job: DeployFunc
+    displayName: 'Deploy resources to Azure'
+    steps:
+    - task: ArchiveFiles@2
+      displayName: 'Archive Files'
+      inputs:
+        rootFolderOrFile: $(System.DefaultWorkingDirectory)/helloworld
+        archiveFile: function.zip
+    - task: PublishPipelineArtifact@1 # this is added in case we want to separate the deployment into stages like dev, QA, UAT, etc. this package would be downloaded on each stage
+      displayName: 'Publish Pipeline Artifact'
+      inputs:
+        targetPath: '$(System.DefaultWorkingDirectory)/function.zip'
+        artifact: 'function-app'
+    - task: AzureFunctionApp@1
+      displayName: 'Azure Function App Deploy: helloworld'
+      inputs:
+        azureSubscription: "MainSvcCon" # ServiceConnection Name
+        appType: functionApp
+        appName: helloworld-sample # function app name
+        resourceGroupName: rg-demo # optional: resource group name where the function app resides
+        appSettings: '-SampleVariable 5 -FUNCTIONS_WORKER_RUNTIME powershell' # FUNCTIONS_WORKER_RUNTIME should be set to dotnet for dotnet functions otherwise you'll get the runtime not available and vice versa
+        package: '$(System.DefaultWorkingDirectory)/function.zip'
